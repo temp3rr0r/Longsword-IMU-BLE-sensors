@@ -35,22 +35,30 @@ unsigned char bytes[12];
 
 int freeFall = 0;
 int shock = 0;
+int lastStepCount = 0;
+unsigned long microsPerReading, microsPrevious;
 
 void setup() {
 
   CurieIMU.begin();
-  CurieIMU.attachInterrupt(eventCallback);
   CurieIMU.setAccelerometerRange(2); // 2g
   CurieIMU.setGyroRange(250); // 250 degrees/second
   pinMode(BLE_CONNECT, OUTPUT);
   pinMode(INDICATOR_LEDA, OUTPUT);
   /* Enable Free Fall Detection */
-  CurieIMU.setDetectionThreshold(CURIE_IMU_FREEFALL, 1000); // 1g=1000mg
-  CurieIMU.setDetectionDuration(CURIE_IMU_FREEFALL, 50);  // 50ms
-  CurieIMU.interrupts(CURIE_IMU_FREEFALL);  /* Enable Shock Detection */
-  CurieIMU.setDetectionThreshold(CURIE_IMU_SHOCK, 1500); // 1.5g = 1500 mg
-  CurieIMU.setDetectionDuration(CURIE_IMU_SHOCK, 50);   // 50ms
-  CurieIMU.interrupts(CURIE_IMU_SHOCK);
+//  CurieIMU.attachInterrupt(eventCallback);
+//  CurieIMU.setDetectionThreshold(CURIE_IMU_FREEFALL, 1000); // 1g=1000mg
+//  CurieIMU.setDetectionDuration(CURIE_IMU_FREEFALL, 50);  // 50ms
+//  CurieIMU.interrupts(CURIE_IMU_FREEFALL);
+//  /* Enable Shock Detection */
+//  CurieIMU.setDetectionThreshold(CURIE_IMU_SHOCK, 1500); // 1.5g = 1500 mg
+//  CurieIMU.setDetectionDuration(CURIE_IMU_SHOCK, 50);   // 50ms
+//  CurieIMU.interrupts(CURIE_IMU_SHOCK);
+//  // turn on step detection mode:
+//  CurieIMU.interrupts(CURIE_IMU_STEP);  // turn on step detection
+//  CurieIMU.setStepDetectionMode(CURIE_IMU_STEP_MODE_NORMAL);
+//  // enable step counting:
+//  CurieIMU.setStepCountEnabled(true);
   
   blePeripheral.setLocalName("imu");
   blePeripheral.setAdvertisedServiceUuid(imuService.uuid());  // add the service UUID
@@ -65,10 +73,15 @@ void setup() {
   imuAccCharacteristic2.setValue( initializerAccGyro, 12);
   imuAccCharacteristic3.setValue( initializerAccGyro, 12);  
   blePeripheral.begin();
+
+  // initialize variables to pace updates to correct rate
+  microsPerReading = 1000000 / 25;
+  microsPrevious = micros();
 }
 
 void loop() {
 
+  unsigned long microsNow;
   int axRaw, ayRaw, azRaw;         // raw accelerometer values
   int gxRaw, gyRaw, gzRaw;         // raw gyro values
   
@@ -76,37 +89,59 @@ void loop() {
   if (central) {
     digitalWrite(BLE_CONNECT, HIGH);
     while (central.connected()) {
-      CurieIMU.readAccelerometer(axRaw, ayRaw, azRaw);      
-      CurieIMU.readGyro(gxRaw, gyRaw, gzRaw);      
-      accGyroData.ag[0] = axRaw;
-      accGyroData.ag[1] = ayRaw;
-      accGyroData.ag[2] = azRaw;
-      unsigned char *accGyro = (unsigned char *)&accGyroData;      
-      imuAccCharacteristic.setValue( accGyro, 12 );
-
-      accGyroData.ag[0] = gxRaw;
-      accGyroData.ag[1] = gyRaw;
-      accGyroData.ag[2] = gzRaw;      
-      unsigned char *accGyro2 = (unsigned char *)&accGyroData;
-      imuAccCharacteristic2.setValue( accGyro2, 12 );
-
-
-      accGyroData.ag[0] = freeFall;
-      accGyroData.ag[1] = shock;
-      accGyroData.ag[2] = gzRaw;
-      unsigned char *accGyro3 = (unsigned char *)&accGyroData;
-      imuAccCharacteristic3.setValue( accGyro3, 12 );
-
-      freeFall = 0;
-      shock = 0;
+      
+      // check if it's time to read data and update the filter
+      microsNow = micros();      
+      if (microsNow - microsPrevious >= microsPerReading) {
+        
+        CurieIMU.readAccelerometer(axRaw, ayRaw, azRaw);      
+        CurieIMU.readGyro(gxRaw, gyRaw, gzRaw);      
+        accGyroData.ag[0] = axRaw;
+        accGyroData.ag[1] = ayRaw;
+        accGyroData.ag[2] = azRaw;
+        unsigned char *accGyro = (unsigned char *)&accGyroData;      
+        imuAccCharacteristic.setValue( accGyro, 12 );
+  
+        accGyroData.ag[0] = gxRaw;
+        accGyroData.ag[1] = gyRaw;
+        accGyroData.ag[2] = gzRaw;      
+        unsigned char *accGyro2 = (unsigned char *)&accGyroData;
+        imuAccCharacteristic2.setValue( accGyro2, 12 );
+  
+  //      updateStepCount();
+        accGyroData.ag[0] = freeFall;
+        accGyroData.ag[1] = shock;
+        accGyroData.ag[2] = shock;
+        unsigned char *accGyro3 = (unsigned char *)&accGyroData;
+        imuAccCharacteristic3.setValue( accGyro3, 12 );
+  
+        freeFall = 0;
+        shock = 0;
+        
+        // increment previous time, so we keep proper pace
+        microsPrevious = microsPrevious + microsPerReading;
+      }
     } // while central.connected  
   } // if central
 } // end loop(){}
 
-static void eventCallback(){
-  if (CurieIMU.getInterruptStatus(CURIE_IMU_FREEFALL)) {
-    freeFall = 1;
-  } else if (CurieIMU.getInterruptStatus(CURIE_IMU_SHOCK)) {
-    shock = 1;
-  }
-}
+
+//static void updateStepCount() {
+//  // get the step count:
+//  int stepCount = CurieIMU.getStepCount();
+//
+//  // if the step count has changed, print it:
+//  if (stepCount != lastStepCount) {
+//    // save the current count for comparison next check:
+//    lastStepCount = stepCount;
+//  }
+//}
+
+//static void eventCallback(){
+//  if (CurieIMU.getInterruptStatus(CURIE_IMU_FREEFALL))
+//    freeFall = 1;
+//  if (CurieIMU.getInterruptStatus(CURIE_IMU_SHOCK))
+//    shock = 1;
+//  if (CurieIMU.stepsDetected())
+//    updateStepCount();
+//}
