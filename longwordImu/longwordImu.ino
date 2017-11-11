@@ -32,7 +32,6 @@ int ag[3];
 unsigned char bytes[12];         
 } accGyroData;
 
-
 void setup() {
 
   CurieIMU.begin();
@@ -76,23 +75,7 @@ void loop() {
       accGyroData.ag[2] = gzRaw;      
       unsigned char *accGyro2 = (unsigned char *)&accGyroData;
       imuAccCharacteristic2.setValue( accGyro2, 12 );
-
             
     } // while central.connected  
   } // if central
 } // end loop(){}
-
-float convertRawAcceleration(int aRaw) {
-  // since we are using 2G range
-  // -2g maps to a raw value of -32768
-  // +2g maps to a raw value of 32767  
-  return (aRaw * 2.0) / 32768.0;
-}
-
-float convertRawGyro(int gRaw) {
-  // since we are using 250 degrees/seconds range
-  // -250 maps to a raw value of -32768
-  // +250 maps to a raw value of 32767
-  
-  return (gRaw * 250.0) / 32768.0;
-}
