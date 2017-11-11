@@ -56,9 +56,8 @@ void setup() {
   CurieIMU.interrupts(CURIE_IMU_SHOCK);
   // turn on step detection mode:
   CurieIMU.interrupts(CURIE_IMU_STEP);  // turn on step detection
-  CurieIMU.setStepDetectionMode(CURIE_IMU_STEP_MODE_NORMAL);
-  // enable step counting:
-  CurieIMU.setStepCountEnabled(true);
+  CurieIMU.setStepDetectionMode(CURIE_IMU_STEP_MODE_NORMAL);  
+  CurieIMU.setStepCountEnabled(true); // enable step counting:
   
   blePeripheral.setLocalName("imu");
   blePeripheral.setAdvertisedServiceUuid(imuService.uuid());  // add the service UUID
@@ -88,8 +87,7 @@ void loop() {
   BLECentral central = blePeripheral.central();
   if (central) {
     digitalWrite(BLE_CONNECT, HIGH);
-    while (central.connected()) {
-      
+    while (central.connected()) {      
       // check if it's time to read data and update the filter
       microsNow = micros();      
       if (microsNow - microsPrevious >= microsPerReading) {
@@ -101,40 +99,33 @@ void loop() {
         accGyroData.ag[2] = azRaw;
         unsigned char *accGyro = (unsigned char *)&accGyroData;      
         imuAccCharacteristic.setValue( accGyro, 12 );
-  
+
+        // TODO: test reuse same array
         accGyroData.ag[0] = gxRaw;
         accGyroData.ag[1] = gyRaw;
         accGyroData.ag[2] = gzRaw;      
-        unsigned char *accGyro2 = (unsigned char *)&accGyroData;
-        imuAccCharacteristic2.setValue( accGyro2, 12 );
+        imuAccCharacteristic2.setValue((unsigned char *)&accGyroData, 12 );
   
         updateStepCount();
         accGyroData.ag[0] = freeFall;
         accGyroData.ag[1] = shock;
         accGyroData.ag[2] = lastStepCount;
-        unsigned char *accGyro3 = (unsigned char *)&accGyroData;
-        imuAccCharacteristic3.setValue( accGyro3, 12 );
+        imuAccCharacteristic3.setValue((unsigned char *)&accGyroData, 12 );
   
         freeFall = 0;
-        shock = 0;
+        shock = 0;       
         
-        // increment previous time, so we keep proper pace
-        microsPrevious = microsPrevious + microsPerReading;
+        microsPrevious = microsPrevious + microsPerReading; // increment previous time, so we keep proper pace
       }
     } // while central.connected  
   } // if central
 } // end loop(){}
 
 
-static void updateStepCount() {
-  // get the step count:
-  int stepCount = CurieIMU.getStepCount();
-
-  // if the step count has changed, print it:
-  if (stepCount != lastStepCount) {
-    // save the current count for comparison next check:
-    lastStepCount = stepCount;
-  }
+static void updateStepCount() {  
+  int stepCount = CurieIMU.getStepCount(); // get the step count  
+  if (stepCount != lastStepCount)// if the step count has changed, print it   
+    lastStepCount = stepCount; // save the current count for comparison next check
 }
 
 static void eventCallback(){
