@@ -14,8 +14,9 @@ BLEService imuService("180F"); // Custom UUID
 *  BLE limits us to 20 bytes of data to transmit. Therefore we cannot send all 6 floats using one 
 *  characteristics. So we will create one characteristic for each main element of the IMU.
 */
-BLECharacteristic imuAccCharacteristic("3A19", BLERead | BLENotify, 12 );
-BLECharacteristic imuAccCharacteristic2("3A20", BLERead | BLENotify, 12 );
+BLECharacteristic imuAccCharacteristic("3A19", BLERead | BLENotify, 12 ); // Accelerometer
+BLECharacteristic imuAccCharacteristic2("3A20", BLERead | BLENotify, 12 ); // Gyroscope
+BLECharacteristic imuAccCharacteristic3("3A21", BLERead | BLENotify, 12 ); // Freefall
 BLEDescriptor imuAccDescriptor("2902", "block");
 #define BLE_CONNECT 3 // This pin will service as a hardware confirmation of the BLE connection
 #define INDICATOR_LEDA 4 // This pin will be used to debug input buttons from mobile app
@@ -32,13 +33,24 @@ int ag[3];
 unsigned char bytes[12];         
 } accGyroData;
 
+int freeFall = 0;
+int shock = 0;
+
 void setup() {
 
   CurieIMU.begin();
+  CurieIMU.attachInterrupt(eventCallback);
   CurieIMU.setAccelerometerRange(2); // 2g
   CurieIMU.setGyroRange(250); // 250 degrees/second
   pinMode(BLE_CONNECT, OUTPUT);
   pinMode(INDICATOR_LEDA, OUTPUT);
+  /* Enable Free Fall Detection */
+  CurieIMU.setDetectionThreshold(CURIE_IMU_FREEFALL, 1000); // 1g=1000mg
+  CurieIMU.setDetectionDuration(CURIE_IMU_FREEFALL, 50);  // 50ms
+  CurieIMU.interrupts(CURIE_IMU_FREEFALL);  /* Enable Shock Detection */
+  CurieIMU.setDetectionThreshold(CURIE_IMU_SHOCK, 1500); // 1.5g = 1500 mg
+  CurieIMU.setDetectionDuration(CURIE_IMU_SHOCK, 50);   // 50ms
+  CurieIMU.interrupts(CURIE_IMU_SHOCK);
   
   blePeripheral.setLocalName("imu");
   blePeripheral.setAdvertisedServiceUuid(imuService.uuid());  // add the service UUID
@@ -46,10 +58,12 @@ void setup() {
   blePeripheral.addAttribute(imuAccCharacteristic);
   blePeripheral.addAttribute(imuAccDescriptor);
   blePeripheral.addAttribute(imuAccCharacteristic2);
+  blePeripheral.addAttribute(imuAccCharacteristic3);
   
-  const unsigned char initializerAccGyro[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 }; 
+  const unsigned char initializerAccGyro[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
   imuAccCharacteristic.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic2.setValue( initializerAccGyro, 12);  
+  imuAccCharacteristic2.setValue( initializerAccGyro, 12);
+  imuAccCharacteristic3.setValue( initializerAccGyro, 12);  
   blePeripheral.begin();
 }
 
@@ -75,7 +89,24 @@ void loop() {
       accGyroData.ag[2] = gzRaw;      
       unsigned char *accGyro2 = (unsigned char *)&accGyroData;
       imuAccCharacteristic2.setValue( accGyro2, 12 );
-            
+
+
+      accGyroData.ag[0] = freeFall;
+      accGyroData.ag[1] = shock;
+      accGyroData.ag[2] = gzRaw;
+      unsigned char *accGyro3 = (unsigned char *)&accGyroData;
+      imuAccCharacteristic3.setValue( accGyro3, 12 );
+
+      freeFall = 0;
+      shock = 0;
     } // while central.connected  
   } // if central
 } // end loop(){}
+
+static void eventCallback(){
+  if (CurieIMU.getInterruptStatus(CURIE_IMU_FREEFALL)) {
+    freeFall = 1;
+  } else if (CurieIMU.getInterruptStatus(CURIE_IMU_SHOCK)) {
+    shock = 1;
+  }
+}
