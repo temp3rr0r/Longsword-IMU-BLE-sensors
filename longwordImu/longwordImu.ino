@@ -58,13 +58,11 @@ void setup() {
   blePeripheral.addAttribute(imuAccDescriptor);
   blePeripheral.addAttribute(imuAccCharacteristic2);
   blePeripheral.addAttribute(imuAccCharacteristic3);
-  blePeripheral.addAttribute(imuAccCharacteristic4);
   
   const unsigned char initializerAccGyro[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
   imuAccCharacteristic.setValue( initializerAccGyro, 12);
   imuAccCharacteristic2.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic3.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic4.setValue( initializerAccGyro, 12);  
+  imuAccCharacteristic3.setValue( initializerAccGyro, 12);  
   blePeripheral.begin();
 
   // initialize variables to pace updates to correct rate
