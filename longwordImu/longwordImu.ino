@@ -137,15 +137,15 @@ void loop() {
         GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
         GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
         GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
-        accGyroData.ag[0] = 1;//AcX;
-        accGyroData.ag[1] = 1;//AcY;
-        accGyroData.ag[2] = 1;//AcZ;
+        accGyroData.ag[0] = AcX;
+        accGyroData.ag[1] = AcY;
+        accGyroData.ag[2] = AcZ;
         imuAccCharacteristic4.setValue((unsigned char *)&accGyroData, 12 );        
 
         // Gyro 2
-        accGyroData.ag[0] = 1;//GyX;
-        accGyroData.ag[1] = 1;//GyY;
-        accGyroData.ag[2] = 1;//GyZ;
+        accGyroData.ag[0] = GyX;
+        accGyroData.ag[1] = GyY;
+        accGyroData.ag[2] = GyZ;
         imuAccCharacteristic5.setValue((unsigned char *)&accGyroData, 12 );        
 
         // Magnetometer
@@ -164,9 +164,9 @@ void loop() {
           y = Wire.read()<<8; //Y msb
           y |= Wire.read(); //Y lsb
         }
-        accGyroData.ag[0] = 1;//x;
-        accGyroData.ag[1] = 1;//y;
-        accGyroData.ag[2] = 1;//z;
+        accGyroData.ag[0] = x;
+        accGyroData.ag[1] = y;
+        accGyroData.ag[2] = z;
         imuAccCharacteristic6.setValue((unsigned char *)&accGyroData, 12 );        
 
         // Step Counter, Temp
