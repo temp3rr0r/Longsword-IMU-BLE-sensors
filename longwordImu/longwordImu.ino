@@ -1,8 +1,7 @@
-
 #include "CurieIMU.h"
 #include <CurieBLE.h>
-
 #include<Wire.h>
+
 const int MPU_addr=0x68;  // I2C address of the MPU-6050
 int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ;
 
@@ -29,6 +28,15 @@ BLECharacteristic imuAccCharacteristic6("3A24", BLERead | BLENotify, 12 ); // Ma
 BLEDescriptor imuAccDescriptor("2902", "block");
 #define BLE_CONNECT 3 // This pin will service as a hardware confirmation of the BLE connection
 #define INDICATOR_LEDA 4 // This pin will be used to debug input buttons from mobile app
+
+enum {
+   UNIT_0_200_MS = 200,                            /**< Number of microseconds in 0.200 milliseconds. */
+        UNIT_0_625_MS = 625,                            /**< Number of microseconds in 0.625 milliseconds. */
+   UNIT_1_MS = 1000,                               /**< Number of microseconds in 1 milliseconds. */
+        UNIT_1_25_MS = 1250,                            /**< Number of microseconds in 1.25 milliseconds. */
+        UNIT_10_MS = 10000                              /**< Number of microseconds in 10 milliseconds. */
+};
+#define MSEC_TO_UNITS(TIME, RESOLUTION) (((TIME) * 1000) / (RESOLUTION))
 
 /**
 * The union directive allows 3 variables to share the same memory location. Please see the 
