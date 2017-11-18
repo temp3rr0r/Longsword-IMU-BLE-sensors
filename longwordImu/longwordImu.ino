@@ -19,12 +19,11 @@ BLEService imuService("180F"); // Custom UUID
 *  BLE limits us to 20 bytes of data to transmit. Therefore we cannot send all 6 floats using one 
 *  characteristics. So we will create one characteristic for each main element of the IMU.
 */
-BLECharacteristic imuAccCharacteristic("3A19", BLERead | BLENotify, 12 ); // Accelerometer
-BLECharacteristic imuAccCharacteristic2("3A20", BLERead | BLENotify, 12 ); // Gyroscope
-BLECharacteristic imuAccCharacteristic3("3A21", BLERead | BLENotify, 12 ); // Steps
-BLECharacteristic imuAccCharacteristic4("3A22", BLERead | BLENotify, 12 ); // Accelerometer2
-BLECharacteristic imuAccCharacteristic5("3A23", BLERead | BLENotify, 12 ); // Gyroscope2
-BLECharacteristic imuAccCharacteristic6("3A24", BLERead | BLENotify, 12 ); // Magnetometer
+BLECharacteristic imuAccCharacteristic("3A19", BLERead | BLENotify, 20 ); // Accelerometer
+BLECharacteristic imuAccCharacteristic2("3A20", BLERead | BLENotify, 20 ); // Gyroscope
+BLECharacteristic imuAccCharacteristic3("3A21", BLERead | BLENotify, 20 ); // Steps
+BLECharacteristic imuAccCharacteristic4("3A22", BLERead | BLENotify, 20 ); // Accelerometer2
+BLECharacteristic imuAccCharacteristic5("3A23", BLERead | BLENotify, 20 ); // Accelerometer2
 BLEDescriptor imuAccDescriptor("2902", "block");
 #define BLE_CONNECT 3 // This pin will service as a hardware confirmation of the BLE connection
 #define INDICATOR_LEDA 4 // This pin will be used to debug input buttons from mobile app
@@ -46,8 +45,8 @@ enum {
 */
 union 
 {
-int ag[3];
-unsigned char bytes[12];         
+int ag[4];
+unsigned char bytes[16];         
 } accGyroData;
 
 int lastStepCount = 0;
@@ -76,8 +75,6 @@ void setup() {
   blePeripheral.addAttribute(imuAccCharacteristic2);
   blePeripheral.addAttribute(imuAccCharacteristic3);
   blePeripheral.addAttribute(imuAccCharacteristic4);
-  blePeripheral.addAttribute(imuAccCharacteristic5);
-  blePeripheral.addAttribute(imuAccCharacteristic6);
 
   // Accel2, Gyro2, Temp
   Wire.begin();
@@ -92,17 +89,15 @@ void setup() {
   Wire.write(0x00); //continuous measurement mode
   Wire.endTransmission();
   
-  const unsigned char initializerAccGyro[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
-  imuAccCharacteristic.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic2.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic3.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic4.setValue( initializerAccGyro, 12);  
-  imuAccCharacteristic5.setValue( initializerAccGyro, 12);
-  imuAccCharacteristic6.setValue( initializerAccGyro, 12);  
+  const unsigned char initializerAccGyro[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+  imuAccCharacteristic.setValue( initializerAccGyro, 16);
+  imuAccCharacteristic2.setValue( initializerAccGyro, 16);
+  imuAccCharacteristic3.setValue( initializerAccGyro, 16);
+  imuAccCharacteristic4.setValue( initializerAccGyro, 16);  
   blePeripheral.begin();
 
   // initialize variables to pace updates to correct rate
-  microsPerReading = 1000000 / 25;
+  microsPerReading = 1000000 / 50;
   microsPrevious = micros();
 }
 
@@ -124,14 +119,10 @@ void loop() {
         CurieIMU.readGyro(gxRaw, gyRaw, gzRaw);      
         accGyroData.ag[0] = axRaw;
         accGyroData.ag[1] = ayRaw;
-        accGyroData.ag[2] = azRaw;
+        accGyroData.ag[2] = azRaw;        
+        accGyroData.ag[3] = gxRaw;
         unsigned char *accGyro = (unsigned char *)&accGyroData;      
-        imuAccCharacteristic.setValue( accGyro, 12 );
-
-        accGyroData.ag[0] = gxRaw;
-        accGyroData.ag[1] = gyRaw;
-        accGyroData.ag[2] = gzRaw;      
-        imuAccCharacteristic2.setValue((unsigned char *)&accGyroData, 12 );      
+        imuAccCharacteristic.setValue( accGyro, 16 );
 
         // Accel 2
         Wire.beginTransmission(MPU_addr);
@@ -144,18 +135,14 @@ void loop() {
         Tmp=Wire.read()<<8|Wire.read();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
         GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
         GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
-        GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
-        accGyroData.ag[0] = AcX;
-        accGyroData.ag[1] = AcY;
-        accGyroData.ag[2] = AcZ;
-        imuAccCharacteristic4.setValue((unsigned char *)&accGyroData, 12 );        
-
-        // Gyro 2
-        accGyroData.ag[0] = GyX;
-        accGyroData.ag[1] = GyY;
-        accGyroData.ag[2] = GyZ;
-        imuAccCharacteristic5.setValue((unsigned char *)&accGyroData, 12 );        
-
+        GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)        
+        
+        accGyroData.ag[0] = gyRaw;
+        accGyroData.ag[1] = gzRaw;      
+        accGyroData.ag[2] = AcX;
+        accGyroData.ag[3] = AcY;
+        imuAccCharacteristic2.setValue((unsigned char *)&accGyroData, 16 );      
+        
         // Magnetometer
         int x,y,z; //triple axis data        
         //Tell the HMC5883L where to begin reading data
@@ -172,17 +159,21 @@ void loop() {
           y = Wire.read()<<8; //Y msb
           y |= Wire.read(); //Y lsb
         }
+        // Gyro 2        
+        accGyroData.ag[0] = AcZ;
+        accGyroData.ag[1] = GyX;       
+        accGyroData.ag[2] = GyY;
+        accGyroData.ag[3] = GyZ;
+        imuAccCharacteristic3.setValue((unsigned char *)&accGyroData, 16 );        
+        
         accGyroData.ag[0] = x;
         accGyroData.ag[1] = y;
         accGyroData.ag[2] = z;
-        imuAccCharacteristic6.setValue((unsigned char *)&accGyroData, 12 );        
-
         // Step Counter, Temp
         updateStepCount();
-        accGyroData.ag[0] = lastStepCount;
-        accGyroData.ag[1] = Tmp; // celcius = (Tmp/340.00+36.53);  // TODO: equation for temperature in degrees C from datasheet
-        accGyroData.ag[2] = lastStepCount;
-        imuAccCharacteristic3.setValue((unsigned char *)&accGyroData, 12 );  
+        accGyroData.ag[3] = lastStepCount;
+        //accGyroData.ag[1] = Tmp; // celcius = (Tmp/340.00+36.53);  // TODO: equation for temperature in degrees C from datasheet        
+        imuAccCharacteristic4.setValue((unsigned char *)&accGyroData, 16 );  
 
         microsPrevious = microsPrevious + microsPerReading; // increment previous time, so we keep proper pace
       }
